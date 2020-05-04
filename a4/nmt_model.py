@@ -44,12 +44,12 @@ class NMT(nn.Module):
 
         # default values
         self.encoder = nn.LSTM(embed_size, self.hidden_size,bidirectional=True) 
-        self.decoder = nn.LSTMCell(embed_size, self.hidden_size)
-        self.h_projection = nn.Linear(self.hidden_size, self.hidden_size*2)
-        self.c_projection = nn.Linear(self.hidden_size, self.hidden_size*2)
-        self.att_projection = nn.Linear(self.hidden_size, self.hidden_size*2)
-        self.combined_output_projection = nn.Linear(self.hidden_size, self.hidden_size*3)
-        self.target_vocab_projection = nn.Linear(len(self.vocab.tgt), self.hidden_size)
+        self.decoder = nn.LSTMCell(embed_size+hidden_size, self.hidden_size)
+        self.h_projection = nn.Linear(self.hidden_size*2,self.hidden_size,bias=False)
+        self.c_projection = nn.Linear(self.hidden_size*2,self.hidden_size,bias=False)
+        self.att_projection = nn.Linear(self.hidden_size*2,self.hidden_size,bias=False)
+        self.combined_output_projection = nn.Linear(self.hidden_size*3,self.hidden_size,bias=False)
+        self.target_vocab_projection = nn.Linear(self.hidden_size,len(self.vocab.tgt),bias=False)
         self.dropout = nn.Dropout(p=self.dropout_rate)
         # For sanity check only, not relevant to implementation
         self.gen_sanity_check = False
@@ -173,23 +173,18 @@ class NMT(nn.Module):
 
         enc_hiddens,(last_hidden,last_cell) = self.encoder(X)
 
-        enc_hiddens = pad_packed_sequence(enc_hiddens,batch_first=True)
-
-        enc_hiddens = enc_hiddens[0]
+        enc_hiddens,_ = pad_packed_sequence(enc_hiddens,batch_first=True)
 
 
 
-        last_hidden = torch.cat((last_hidden[0],last_hidden[1]), 1)
-        print(last_hidden.shape)
-        init_decoder_hidden = self.h_projection(last_hidden)
 
-        last_cell = torch.cat((last_cell[0],last_cell[1]), 1)
-        print(last_cell.shape)
-        init_decoder_cell = self.c_projection(last_cell)
+        last_hidden_concat = torch.cat((last_hidden[0],last_hidden[1]), 1)
+        init_decoder_hidden = self.h_projection(last_hidden_concat)
+
+        last_cell_concat = torch.cat((last_cell[0],last_cell[1]), 1)
+        init_decoder_cell = self.c_projection(last_cell_concat)
 
 
-        print(last_hidden.shape)
-        print(last_cell.shape)
 
 
         dec_init_state = (init_decoder_hidden,init_decoder_cell)
